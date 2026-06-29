@@ -15,7 +15,7 @@ class _HomePageState extends State<HomePage> {
   int selectedIndex=0;
   final List<Widget> screens = [
     const DashBoardWidget(),
-    const PortoflioWidget(),
+    const PortfolioWidget(),
     const InsightsWidget(),
     const ProfileWidget(),
 
