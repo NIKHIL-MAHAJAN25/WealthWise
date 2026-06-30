@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:wealthwise/login/login_screen.dart';
 import 'package:wealthwise/screens/homePage.dart';
+import 'dart:io';
+
+import 'package:image_picker/image_picker.dart';
+import '../repositories/auth_repository.dart';
+import 'package:wealthwise/services/supabase_storage_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -12,6 +18,8 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   static const _green = Color(0xFF4D6B43);
   static const _bg = Color(0xFFFBF8F2);
+  File? _selectedImage;
+  final AuthRepository _authRepository = AuthRepository();
 
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -20,6 +28,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,6 +37,111 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String? _validate() {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (name.isEmpty) return "Please enter your full name.";
+    if (email.isEmpty) return "Please enter your email.";
+    if (!RegExp(r'^[\w\.\-]+@([\w\-]+\.)+[\w\-]{2,4}$').hasMatch(email)) {
+      return "Please enter a valid email address.";
+    }
+    if (password.isEmpty) return "Please enter a password.";
+    if (password.length < 8) return "Password must be at least 8 characters.";
+    if (confirmPassword.isEmpty) return "Please confirm your password.";
+    if (password != confirmPassword) return "Passwords do not match.";
+
+    return null;
+  }
+
+  Future<void> _handleSignUp() async {
+    final error = _validate();
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      String? imageUrl;
+
+      if (_selectedImage != null) {
+        imageUrl = await SupabaseStorageService.uploadProfileImage(
+          _selectedImage!,
+        );
+
+        // Upload failure shouldn't silently continue with a null URL
+        // and no feedback — let the user know and let them retry or
+        // proceed without a photo.
+        if (imageUrl == null && mounted) {
+          final proceedWithoutPhoto = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Photo upload failed"),
+              content: const Text(
+                  "We couldn't upload your profile photo. Continue signup without it?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text("Continue"),
+                ),
+              ],
+            ),
+          );
+
+          if (proceedWithoutPhoto != true) {
+            setState(() => _isLoading = false);
+            return;
+          }
+        }
+      }
+
+      final response = await _authRepository.signup(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        profileImage: imageUrl,
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Signup failed. Please try again.")),
+        );
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final message = e.response?.data is Map
+          ? (e.response?.data["message"] ?? "Signup failed. Please try again.")
+          : "Signup failed. Please try again.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message.toString())),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Something went wrong. Please try again.")),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -98,8 +212,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     color: Colors.grey,
                   ),
                   onPressed: () {
-                    setState(() =>
-                        _obscureConfirmPassword = !_obscureConfirmPassword);
+                    setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    );
                   },
                 ),
               ),
@@ -134,10 +249,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: _buildProfilePhotoPicker(),
-        ),
+        Expanded(flex: 2, child: _buildProfilePhotoPicker()),
       ],
     );
   }
@@ -153,7 +265,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         children: [
           TextSpan(text: "Create Your\n"),
-          TextSpan(text: "WealthWise\n", style: TextStyle(color: _green)),
+          TextSpan(
+            text: "WealthWise\n",
+            style: TextStyle(color: _green),
+          ),
           TextSpan(text: "Account"),
         ],
       ),
@@ -173,18 +288,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 color: const Color(0xFFE8E4DA),
                 border: Border.all(color: Colors.white, width: 4),
               ),
-              child: const Icon(
-                Icons.person,
-                size: 50,
-                color: Color(0xFFB5AD9C),
+              child: ClipOval(
+                child: _selectedImage == null
+                    ? const Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Color(0xFFB5AD9C),
+                      )
+                    : Image.file(
+                        _selectedImage!,
+                        fit: BoxFit.cover,
+                        width: 90,
+                        height: 90,
+                      ),
               ),
             ),
             Positioned(
               bottom: 0,
               right: 0,
               child: GestureDetector(
-                onTap: () {
-                  // hook up image picker later
+                onTap: () async {
+                  final picker = ImagePicker();
+
+                  final image = await picker.pickImage(
+                    source: ImageSource.gallery,
+                    imageQuality: 80,
+                  );
+
+                  if (image == null) return;
+
+                  setState(() {
+                    _selectedImage = File(image.path);
+                  });
                 },
                 child: Container(
                   width: 30,
@@ -209,10 +344,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           textAlign: TextAlign.center,
         ),
-        const Text(
-          "(Optional)",
-          style: TextStyle(color: _green, fontSize: 12),
-        ),
+        const Text("(Optional)", style: TextStyle(color: _green, fontSize: 12)),
       ],
     );
   }
@@ -236,8 +368,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFE0DCD0)),
@@ -255,32 +386,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: () {
-           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const HomePage(),
-                    ),
-                    );
-        },
+        onPressed: _isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
           backgroundColor: _green,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              "Sign Up",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Sign Up",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                ],
               ),
-            ),
-            SizedBox(width: 8),
-            Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-          ],
-        ),
       ),
     );
   }
@@ -296,16 +432,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
           GestureDetector(
             onTap: () {
-               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const LoginScreen(),
-                    ),
-                    );
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
             },
             child: const Text(
               "Log In",
-              style: TextStyle(
-                color: _green,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: _green, fontWeight: FontWeight.bold),
             ),
           ),
         ],

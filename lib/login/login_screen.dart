@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:wealthwise/login/signup_screen.dart';
 import 'package:wealthwise/screens/homePage.dart';
+import 'package:wealthwise/repositories/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,15 +17,78 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authRepository = AuthRepository();
 
   bool _obscurePassword = true;
-  bool _rememberMe = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String? _validate() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty) return "Please enter your email.";
+    if (!RegExp(r'^[\w\.\-]+@([\w\-]+\.)+[\w\-]{2,4}$').hasMatch(email)) {
+      return "Please enter a valid email address.";
+    }
+    if (password.isEmpty) return "Please enter your password.";
+    if (password.length < 8) return "Password must be at least 8 characters.";
+
+    return null;
+  }
+
+  Future<void> _handleLogin() async {
+    final error = _validate();
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _authRepository.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      // Only navigate on a genuinely successful response.
+      if (response.statusCode == 200) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Login failed. Please try again.")),
+        );
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final message = e.response?.data is Map
+          ? (e.response?.data["message"] ?? "Invalid email or password.")
+          : "Invalid email or password.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message.toString())),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Something went wrong. Please try again.")),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -37,7 +102,6 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8),
-              
               const SizedBox(height: 24),
               _buildHeaderRow(),
               const SizedBox(height: 32),
@@ -66,7 +130,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              
               const SizedBox(height: 24),
               _buildLoginButton(),
               const SizedBox(height: 28),
@@ -181,39 +244,42 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  
-
   Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: () {
-           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const HomePage(),
-                    ),
-                    );
-        },
+        onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: _green,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              "Log In",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Log In",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                ],
               ),
-            ),
-            SizedBox(width: 8),
-            Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-          ],
-        ),
       ),
     );
   }
@@ -229,9 +295,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           GestureDetector(
             onTap: () {
-               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const SignUpScreen(),
-                    ),
-                    );
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const SignUpScreen()),
+              );
             },
             child: const Row(
               children: [

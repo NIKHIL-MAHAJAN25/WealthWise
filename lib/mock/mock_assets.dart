@@ -18,7 +18,7 @@ final portfolio = Portfolio(
 
 final List<Asset> mockAssets = [
   Asset(
-    id: "A001",
+    id: 1,
     name: "Apple Inc.",
     type: AssetType.stocks,
     currentValue: 185000,
@@ -29,7 +29,7 @@ final List<Asset> mockAssets = [
   ),
 
   Asset(
-    id: "A002",
+    id: 2,
     name: "24K Gold",
     type: AssetType.gold,
     currentValue: 95000,
@@ -39,7 +39,7 @@ final List<Asset> mockAssets = [
   ),
 
   Asset(
-    id: "A003",
+    id: 3,
     name: "Emergency Fund",
     type: AssetType.cash,
     currentValue: 50000,
@@ -49,7 +49,7 @@ final List<Asset> mockAssets = [
   ),
 
   Asset(
-    id: "A004",
+    id: 4,
     name: "Bitcoin",
     type: AssetType.crypto,
     currentValue: 145000,
@@ -59,7 +59,7 @@ final List<Asset> mockAssets = [
   ),
 
   Asset(
-    id: "A005",
+    id: 5,
     name: "SBI Fixed Deposit",
     type: AssetType.fixedDeposit,
     currentValue: 210000,

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
+
+import '../providers/asset_provider.dart';
 
 // ── Theme constants (keep in sync with portfolio_widget.dart) ─────────────────
 
@@ -18,24 +21,7 @@ String _formatINR(double v) {
   return '₹${v.toStringAsFixed(0)}';
 }
 
-// ── Net worth history data ────────────────────────────────────────────────────
-
-class _NetWorthPoint {
-  final String month;
-  final double value;
-  const _NetWorthPoint(this.month, this.value);
-}
-
-const _netWorthHistory = [
-  _NetWorthPoint('Jan', 420000),
-  _NetWorthPoint('Feb', 450000),
-  _NetWorthPoint('Mar', 470000),
-  _NetWorthPoint('Apr', 510000),
-  _NetWorthPoint('May', 590000),
-  _NetWorthPoint('Jun', 685000),
-];
-
-// ── Settings items ────────────────────────────────────────────────────────────
+// ── Settings items (trimmed to: Personal Info, Notifications, Appearance, About) ──
 
 class _SettingsItem {
   final IconData icon;
@@ -45,13 +31,9 @@ class _SettingsItem {
 }
 
 const _settingsItems = [
-  _SettingsItem(Icons.person_outline_rounded,   'Personal Information', 'Update your personal details'),
-  _SettingsItem(Icons.account_balance_outlined,  'Linked Accounts',      '5 accounts connected'),
-  _SettingsItem(Icons.shield_outlined,           'Security',             'Change password, 2FA'),
+  _SettingsItem(Icons.person_outline_rounded,    'Personal Information', 'Update your personal details'),
   _SettingsItem(Icons.notifications_none_rounded,'Notifications',        'Manage notification preferences'),
   _SettingsItem(Icons.palette_outlined,          'Appearance',           'Theme, font & display options'),
-  _SettingsItem(Icons.attach_money_rounded,      'Currency',             'INR - Indian Rupee'),
-  _SettingsItem(Icons.help_outline_rounded,      'Help & Support',       'FAQs, contact support'),
   _SettingsItem(Icons.info_outline_rounded,      'About WealthWise',     'Version 1.0.0'),
 ];
 
@@ -67,17 +49,48 @@ class ProfileWidget extends StatefulWidget {
 class _ProfileWidgetState extends State<ProfileWidget> {
   bool _hideNetWorth = false;
 
-  final double _totalNetWorth = 685000;
-  final double _gainPct       = 8.4;
-  final double _gainAbs       = 53000;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AssetProvider>().loadAssets();
+    });
+  }
+
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      // TODO: clear stored Spring Boot auth token here once that's wired up.
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AssetProvider>();
+
     return Scaffold(
       backgroundColor: kBg,
       body: CustomScrollView(
         slivers: [
-          // ── App bar ──
+          // ── App bar (icons removed) ──
           SliverAppBar(
             backgroundColor: kBg,
             floating: true,
@@ -90,39 +103,13 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined, color: kTextPrimary),
-                onPressed: () {},
-              ),
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded,
-                        color: kTextPrimary),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    top: 8, right: 8,
-                    child: Container(
-                      width: 8, height: 8,
-                      decoration: const BoxDecoration(
-                        color: kAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
 
           // ── User card ──
           SliverToBoxAdapter(child: _buildUserCard()),
 
-          // ── Net worth card ──
-          SliverToBoxAdapter(child: _buildNetWorthCard()),
+          // ── Net worth card (real data) ──
+          SliverToBoxAdapter(child: _buildNetWorthCard(provider)),
 
           // ── Settings list ──
           SliverToBoxAdapter(child: _buildSettingsList()),
@@ -151,7 +138,6 @@ class _ProfileWidgetState extends State<ProfileWidget> {
       ),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: 60, height: 60,
             decoration: BoxDecoration(
@@ -159,12 +145,11 @@ class _ProfileWidgetState extends State<ProfileWidget> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white24, width: 2),
             ),
-            child: ClipOval(
+            child: const ClipOval(
               child: _AvatarIllustration(),
             ),
           ),
           const SizedBox(width: 16),
-          // Name & email
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,8 +207,13 @@ class _ProfileWidgetState extends State<ProfileWidget> {
     );
   }
 
-  // ── Net worth card ──
-  Widget _buildNetWorthCard() {
+  // ── Net worth card — now driven by AssetProvider ──
+  Widget _buildNetWorthCard(AssetProvider provider) {
+    final totalNetWorth = provider.totalNetWorth;
+    final gainPct = provider.gainPercentage;
+    final gainAbs = provider.totalGain;
+    final trend = provider.netWorthTrendMock; // reuse the mocked trend from dashboard
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.all(20),
@@ -259,13 +249,12 @@ class _ProfileWidgetState extends State<ProfileWidget> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Numbers
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _hideNetWorth ? '••••••' : _formatINR(_totalNetWorth),
+                      _hideNetWorth ? '••••••' : _formatINR(totalNetWorth),
                       style: const TextStyle(
                         color: kTextPrimary,
                         fontSize: 26,
@@ -276,13 +265,18 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.arrow_upward_rounded,
-                            color: kGreen, size: 14),
+                        Icon(
+                          gainAbs >= 0
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded,
+                          color: gainAbs >= 0 ? kGreen : Colors.redAccent,
+                          size: 14,
+                        ),
                         const SizedBox(width: 2),
                         Text(
-                          '$_gainPct% (+${_formatINR(_gainAbs)})',
-                          style: const TextStyle(
-                            color: kGreen,
+                          '${gainPct.toStringAsFixed(1)}% (${gainAbs >= 0 ? '+' : ''}${_formatINR(gainAbs)})',
+                          style: TextStyle(
+                            color: gainAbs >= 0 ? kGreen : Colors.redAccent,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -291,17 +285,16 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                     ),
                     const SizedBox(height: 2),
                     const Text(
-                      'vs last month',
+                      'overall gain/loss',
                       style: TextStyle(color: kTextSec, fontSize: 11),
                     ),
                   ],
                 ),
               ),
-              // Mini sparkline
               SizedBox(
                 width: 110, height: 50,
                 child: CustomPaint(
-                  painter: _SparklinePainter(points: _netWorthHistory),
+                  painter: _SparklinePainter(values: trend),
                 ),
               ),
             ],
@@ -330,7 +323,7 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                     horizontal: 16, vertical: 4),
                 leading: Container(
                   width: 40, height: 40,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: kBg,
                     shape: BoxShape.circle,
                   ),
@@ -353,7 +346,7 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                 onTap: () {},
               ),
               if (!isLast)
-                Divider(
+                const Divider(
                   height: 1,
                   indent: 72,
                   color: kBg,
@@ -365,13 +358,13 @@ class _ProfileWidgetState extends State<ProfileWidget> {
     );
   }
 
-  // ── Logout ──
+  // ── Logout — now functional ──
   Widget _buildLogout() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Center(
         child: GestureDetector(
-          onTap: () {},
+          onTap: _handleLogout,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: const [
@@ -393,17 +386,16 @@ class _ProfileWidgetState extends State<ProfileWidget> {
   }
 }
 
-// ── Sparkline painter ─────────────────────────────────────────────────────────
+// ── Sparkline painter — now takes raw values instead of _NetWorthPoint ────────
 
 class _SparklinePainter extends CustomPainter {
-  final List<_NetWorthPoint> points;
-  _SparklinePainter({required this.points});
+  final List<double> values;
+  _SparklinePainter({required this.values});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
+    if (values.isEmpty) return;
 
-    final values = points.map((p) => p.value).toList();
     final minV = values.reduce(math.min);
     final maxV = values.reduce(math.max);
     final range = maxV - minV == 0 ? 1.0 : maxV - minV;
@@ -411,9 +403,9 @@ class _SparklinePainter extends CustomPainter {
     final path = Path();
     final fillPath = Path();
 
-    for (int i = 0; i < points.length; i++) {
-      final x = (i / (points.length - 1)) * size.width;
-      final y = size.height - ((points[i].value - minV) / range) * size.height;
+    for (int i = 0; i < values.length; i++) {
+      final x = values.length == 1 ? 0.0 : (i / (values.length - 1)) * size.width;
+      final y = size.height - ((values[i] - minV) / range) * size.height;
       if (i == 0) {
         path.moveTo(x, y);
         fillPath.moveTo(x, size.height);
@@ -424,7 +416,6 @@ class _SparklinePainter extends CustomPainter {
       }
     }
 
-    // Fill
     fillPath.lineTo(size.width, size.height);
     fillPath.close();
 
@@ -438,7 +429,6 @@ class _SparklinePainter extends CustomPainter {
 
     canvas.drawPath(fillPath, fillPaint);
 
-    // Line
     final linePaint = Paint()
       ..color = kGreen
       ..strokeWidth = 2
@@ -456,6 +446,8 @@ class _SparklinePainter extends CustomPainter {
 // ── Simple avatar illustration (no image dependency) ─────────────────────────
 
 class _AvatarIllustration extends StatelessWidget {
+  const _AvatarIllustration();
+
   @override
   Widget build(BuildContext context) {
     return Container(
