@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wealthwise/screens/add_asset.dart';
 import 'insights.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
@@ -78,7 +79,9 @@ Widget _navItem(int index, IconData icon, IconData selectedIcon, String label) {
 Widget _centerFab() {
   return GestureDetector(
     onTap: () {
-      // hook this up to your "Add Asset" flow later
+       Navigator.push(context, MaterialPageRoute(builder: (context)=>const AddAssetScreen(),
+                    ),
+                    );
     },
     child: Container(
       width: 56,

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:wealthwise/login/login_screen.dart';
+import 'package:wealthwise/login/signup_screen.dart';
+import 'package:wealthwise/login/welcome_screen.dart';
 import 'homePage.dart';
 class SplashWidget extends StatefulWidget {
   const SplashWidget({super.key});
@@ -19,7 +22,7 @@ class _SplashWidgetState extends State<SplashWidget> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const HomePage(),
+          builder: (context) => const WealthWiseWelcomeScreen(),
         ),
       );
     },
@@ -28,7 +31,7 @@ class _SplashWidgetState extends State<SplashWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBF5),
+      backgroundColor: Color.fromARGB(255, 250, 246, 236),
       
       body: SafeArea(
         child: Column(
