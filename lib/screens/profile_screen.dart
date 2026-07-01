@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wealthwise/login/welcome_screen.dart';
 import 'dart:math' as math;
 
 import '../providers/asset_provider.dart';
@@ -57,30 +58,37 @@ class _ProfileWidgetState extends State<ProfileWidget> {
     });
   }
 
-  Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+ void _handleLogout() {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Logout'),
+      content: const Text('Are you sure you want to logout?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx); // Close dialog first
 
-    if (confirmed == true && mounted) {
-      // TODO: clear stored Spring Boot auth token here once that's wired up.
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-    }
-  }
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const WealthWiseWelcomeScreen(),
+              ),
+            );
+          },
+          child: const Text(
+            'Logout',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

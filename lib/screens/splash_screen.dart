@@ -3,6 +3,7 @@ import 'package:lottie/lottie.dart';
 import 'package:wealthwise/login/login_screen.dart';
 import 'package:wealthwise/login/signup_screen.dart';
 import 'package:wealthwise/login/welcome_screen.dart';
+import 'package:wealthwise/screens/dashboard_screen.dart';
 import 'homePage.dart';
 class SplashWidget extends StatefulWidget {
   const SplashWidget({super.key});
@@ -22,7 +23,7 @@ class _SplashWidgetState extends State<SplashWidget> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const WealthWiseWelcomeScreen(),
+          builder: (context) => const HomePage(),
         ),
       );
     },

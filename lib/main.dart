@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:wealthwise/providers/news_provider.dart';
 
 import 'providers/asset_provider.dart';
 import 'screens/splash_screen.dart';
@@ -24,17 +25,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AssetProvider()..loadAssets(),
-        ),
+        ChangeNotifierProvider(create: (_) => AssetProvider()..loadAssets()),
+        ChangeNotifierProvider(create: (_) => NewsProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'WealthWise',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF4D6B43),
-          ),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4D6B43)),
           useMaterial3: true,
         ),
         home: const SplashWidget(),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wealthwise/screens/add_asset.dart';
+import 'package:wealthwise/screens/practice.dart';
 import 'insights.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
@@ -17,7 +18,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> screens = [
     const DashBoardWidget(),
     const PortfolioWidget(),
-    const InsightsWidget(),
+    const InsightsScreen(),
     const ProfileWidget(),
 
   ];

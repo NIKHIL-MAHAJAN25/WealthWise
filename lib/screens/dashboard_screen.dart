@@ -233,7 +233,7 @@ class _DashBoardWidgetState extends State<DashBoardWidget> {
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
       ("Remove Asset", Icons.remove_circle_outline, _coral),
-      ("Goals", Icons.flag_outlined, _teal),
+      
     ];
 
     return Row(
